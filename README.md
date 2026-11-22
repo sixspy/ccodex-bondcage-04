@@ -22,8 +22,8 @@
 
 | 项 | 内容 |
 |----|------|
-| 业务 LOC | **≥2900**（py+前端，不含 vue.global / Docker / README；自检约 2984） |
-| 后端模块 | db / auth / locks / bonds_svc / cages_svc / attest_svc / release_svc / forfeit_svc / reconcile_svc / audit_svc / topup_svc / split_svc |
+| 业务 LOC | **≥2900**（py+前端，不含 vue.global / Docker / README；自检约 3540） |
+| 后端模块 | db / auth / locks / doctrine / bonds_svc / cages_svc / attest_svc / release_svc / forfeit_svc / reconcile_svc / audit_svc / topup_svc / split_svc |
 | 前端视图 | 保证金户 / 入笼冻结 / 履约核验 / 解笼拨付 / 罚没册 / 对账互证 / 审计争用 / 增补拆笼空桩（8 页） |
 | 空桩 | topup（增补入笼）、split（拆笼分拨）——前后端均有 |
 
@@ -34,9 +34,18 @@
 ## 互斥切口候选
 
 - 解笼失败整笔回滚 vs 影子拨付后晋升
-- 罚没立即入册 vs 影子罚没待复核晋升
+- 罚没立即入册 vs 影子罚没待复核晋升 —— **已锁定：影子罚没待复核晋升**（乙路径，2026-11-22 当日锁死，见 `docs/罚没复核纪要.md` 与 `backend/doctrine.py`；异口径请求记「罚没偏航」并拒写）
 - 增补同笼扩代 vs 新笼桥接双写
 - 拆笼整笔事务切分 vs 影子子笼后晋升
+
+## 罚没复核（乙路径）
+
+登记岗 `POST /api/forfeits` 只落影子罚没单（待复核），账实零动；复核岗（非登记人）
+`POST /api/forfeit-orders/{id}/review`：通过则同一事务晋升（写罚没册+扣笼可用+
+减账户冻结与余额+记审计），驳回或晋升失败则影子作废、正式册与笼面零改。
+种子违约态笼（`fixtures/breach_cages.json`）与假绿事故夹具
+（`scripts/repro_false_green.py`，在本机文件库跑通）可复现「复核未签字直罚」事故；
+罚没/核验/入笼/对账/审计五页账实同源。
 
 ## 启动
 

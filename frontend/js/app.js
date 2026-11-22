@@ -36,6 +36,9 @@ createApp({
     const attestations = ref([]);
     const releases = ref([]);
     const forfeits = ref([]);
+    const forfeitOrders = ref([]);
+    const forfeitDoctrine = ref({});
+    const reviewNote = ref("");
     const recon = ref({});
     const partyProof = ref(null);
     const proofParty = ref("P-EAST");
@@ -141,6 +144,12 @@ createApp({
         (c) => c.status === "核验违约" || c.status === "部分罚没"
       )
     );
+    const pendingOrders = computed(() =>
+      forfeitOrders.value.filter((o) => o.status === "待复核")
+    );
+    const closedOrders = computed(() =>
+      forfeitOrders.value.filter((o) => o.status !== "待复核")
+    );
 
     async function login() {
       err.value = "";
@@ -195,6 +204,8 @@ createApp({
           lk,
           tj,
           sj,
+          fo,
+          fd,
         ] = await Promise.all([
           api.bonds(),
           api.cages(),
@@ -207,6 +218,8 @@ createApp({
           api.locks(),
           api.topupJobs(),
           api.splitJobs(),
+          api.forfeitOrders(),
+          api.forfeitDoctrine(),
         ]);
         bonds.value = b.items || [];
         cages.value = c.items || [];
@@ -219,6 +232,8 @@ createApp({
         locks.value = lk.items || [];
         topupJobs.value = tj.items || [];
         splitJobs.value = sj.items || [];
+        forfeitOrders.value = fo.items || [];
+        forfeitDoctrine.value = fd || {};
         if (!attestForm.value.cage_id && frozenCages.value.length) {
           attestForm.value.cage_id = frozenCages.value[0].id;
         }
@@ -335,7 +350,26 @@ createApp({
         };
         if (forfeitForm.value.amount) payload.amount = forfeitForm.value.amount;
         const row = await api.forfeit(payload);
-        flashOk(`罚没成功 ${row.forfeit_ref}`);
+        flashOk(`影子罚没已登记 ${row.order_ref}，待复核岗签字`);
+        await refresh();
+      } catch (e) {
+        flashErr(e);
+      }
+    }
+
+    async function reviewForfeit(order, decision) {
+      clearFlash();
+      try {
+        const row = await api.reviewForfeit(order.id, {
+          decision,
+          note: reviewNote.value,
+        });
+        flashOk(
+          decision === "通过"
+            ? `复核通过，已原子晋升 ${row.order_ref}`
+            : `已驳回，影子单作废 ${row.order_ref}`
+        );
+        reviewNote.value = "";
         await refresh();
       } catch (e) {
         flashErr(e);
@@ -405,6 +439,11 @@ createApp({
       attestations,
       releases,
       forfeits,
+      forfeitOrders,
+      forfeitDoctrine,
+      reviewNote,
+      pendingOrders,
+      closedOrders,
       recon,
       partyProof,
       proofParty,
@@ -442,6 +481,7 @@ createApp({
       doAttest,
       doRelease,
       doForfeit,
+      reviewForfeit,
       loadReconcile,
       loadProof,
       doTopupStub,
@@ -479,6 +519,7 @@ createApp({
       <div class="dash-chip"><div class="k">冻结可用</div><div class="v">{{ fmt(dash.frozen_available) }}</div></div>
       <div class="dash-chip"><div class="k">已拨付</div><div class="v">{{ fmt(dash.released_total) }}</div></div>
       <div class="dash-chip"><div class="k">已罚没</div><div class="v">{{ fmt(dash.forfeited_total) }}</div></div>
+      <div class="dash-chip"><div class="k">待复核罚没</div><div class="v">{{ dash.pending_forfeit_orders || 0 }}</div></div>
     </div>
     <nav class="nav">
       <button v-for="(n,i) in nav" :key="n" :class="{active: tab===i}" @click="tab=i">{{ n }}</button>

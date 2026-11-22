@@ -28,11 +28,14 @@ def try_acquire(conn, lock_key: str, holder: str) -> bool:
         return True
     if row["holder"] == holder:
         return True
-    conn.execute(
-        """INSERT INTO contention_log(lock_key,actor,action,detail,created_at)
-           VALUES (?,?,?,?,?)""",
-        (lock_key, holder, "争用", f"持有者={row['holder']}", now),
-    )
+    # 争用痕独立连接立即提交：业务事务随后回滚也不丢痕（后到只留争用痕）
+    with connect() as trace:
+        trace.execute(
+            """INSERT INTO contention_log(lock_key,actor,action,detail,created_at)
+               VALUES (?,?,?,?,?)""",
+            (lock_key, holder, "争用", f"持有者={row['holder']}", now),
+        )
+        trace.commit()
     return False
 
 

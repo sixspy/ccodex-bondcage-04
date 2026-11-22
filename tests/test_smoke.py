@@ -110,7 +110,22 @@ def test_forfeit_path():
         json={"cage_id": frozen["id"], "reason": "逾期未履约"},
     )
     assert fr.status_code == 200
-    assert fr.json()["status"] == "已罚没"
+    # 乙路径：先落影子罚没单（待复核），复核岗换人签字后才原子晋升
+    assert fr.json()["status"] == "待复核"
+    h2 = _auth(c, "clerk")
+    rv = c.post(
+        f"/api/forfeit-orders/{fr.json()['id']}/review",
+        headers=h2,
+        json={"decision": "通过", "note": "复核属实"},
+    )
+    assert rv.status_code == 200
+    assert rv.json()["status"] == "已晋升"
+    formal = [
+        f
+        for f in c.get("/api/forfeits", headers=h).json()["items"]
+        if f["cage_id"] == frozen["id"]
+    ]
+    assert formal and formal[0]["status"] == "已罚没"
     recon = c.get(f"/api/reconcile/{frozen['cage_code']}", headers=h).json()
     assert recon["balanced"] is True
 

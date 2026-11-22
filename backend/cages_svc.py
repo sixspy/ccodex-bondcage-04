@@ -20,14 +20,19 @@ def _next_cage_code(conn, party_key: str) -> str:
 
 @router.get("/api/cages")
 def list_cages(authorization: AuthHeader = None, status: str | None = None):
+    """笼列表：pending_forfeit 为待复核影子罚没占用（只占意图，不扣可用）。"""
     require_user(authorization)
     with connect() as conn:
+        sql = """SELECT c.*,
+                        (SELECT COALESCE(SUM(o.amount),0) FROM forfeit_orders o
+                          WHERE o.cage_id=c.id AND o.status='待复核') AS pending_forfeit
+                 FROM cages c"""
         if status:
             rows = conn.execute(
-                "SELECT * FROM cages WHERE status=? ORDER BY id DESC", (status,)
+                sql + " WHERE c.status=? ORDER BY c.id DESC", (status,)
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM cages ORDER BY id DESC").fetchall()
+            rows = conn.execute(sql + " ORDER BY c.id DESC").fetchall()
         return {"items": [dict(r) for r in rows]}
 
 
@@ -50,11 +55,16 @@ def get_cage(cage_id: int, authorization: AuthHeader = None):
             "SELECT * FROM forfeits WHERE cage_id=? ORDER BY id DESC",
             (cage_id,),
         ).fetchall()
+        orders = conn.execute(
+            "SELECT * FROM forfeit_orders WHERE cage_id=? ORDER BY id DESC",
+            (cage_id,),
+        ).fetchall()
         return {
             "cage": dict(cage),
             "attestations": [dict(a) for a in atts],
             "releases": [dict(r) for r in rels],
             "forfeits": [dict(f) for f in fors],
+            "forfeit_orders": [dict(o) for o in orders],
         }
 
 

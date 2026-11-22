@@ -1,0 +1,62 @@
+{
+  "accounts": [
+    {
+      "party_key": "P-BREACH-A",
+      "party_name": "违约夹具甲厂",
+      "balance": 200000,
+      "frozen": 150000,
+      "status": "正常",
+      "created_at": "2026-11-10T09:00:00"
+    },
+    {
+      "party_key": "P-BREACH-B",
+      "party_name": "违约夹具乙队",
+      "balance": 120000,
+      "frozen": 90000,
+      "status": "正常",
+      "created_at": "2026-11-10T09:05:00"
+    }
+  ],
+  "cages": [
+    {
+      "cage_code": "CG-BREACH-001",
+      "party_key": "P-BREACH-A",
+      "contract_no": "HT-BREACH-0001",
+      "amount": 150000,
+      "available": 150000,
+      "generation": 1,
+      "status": "核验违约",
+      "beneficiary": "市质监站项目办",
+      "created_at": "2026-11-11T10:00:00",
+      "frozen_at": "2026-11-11T10:00:00"
+    },
+    {
+      "cage_code": "CG-BREACH-002",
+      "party_key": "P-BREACH-B",
+      "contract_no": "HT-BREACH-0002",
+      "amount": 90000,
+      "available": 90000,
+      "generation": 1,
+      "status": "核验违约",
+      "beneficiary": "港区仓储中心",
+      "created_at": "2026-11-11T11:00:00",
+      "frozen_at": "2026-11-11T11:00:00"
+    }
+  ],
+  "attestations": [
+    {
+      "cage_code": "CG-BREACH-001",
+      "outcome": "违约",
+      "evidence": "逾期 30 日未交付，抽检不合格（种子违约态夹具）",
+      "officer": "clerk",
+      "created_at": "2026-11-20T15:00:00"
+    },
+    {
+      "cage_code": "CG-BREACH-002",
+      "outcome": "违约",
+      "evidence": "擅自撤场，履约保函触发（种子违约态夹具）",
+      "officer": "admin",
+      "created_at": "2026-11-20T16:00:00"
+    }
+  ]
+}

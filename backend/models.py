@@ -40,6 +40,13 @@ class ForfeitIn(BaseModel):
     cage_id: int
     amount: float | None = None
     reason: str = "履约违约"
+    mode: str | None = None  # 缺省=纪要锁定口径；携带异口径即罚没偏航
+
+
+class ForfeitReviewIn(BaseModel):
+    decision: str  # 通过 / 驳回
+    note: str = ""
+    mode: str | None = None
 
 
 class TopupIn(BaseModel):
