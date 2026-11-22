@@ -45,6 +45,8 @@ def release(conn, lock_key: str, holder: str) -> None:
 
 def require_lock(conn, lock_key: str, holder: str) -> None:
     if not try_acquire(conn, lock_key, holder):
+        # 争用痕须先落库，否则 409 回滚后审计页看不到后到者。
+        conn.commit()
         raise HTTPException(409, "争用：后到只记争用，不写业务")
 
 

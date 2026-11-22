@@ -18,7 +18,12 @@ def list_attestations(authorization: AuthHeader = None):
     require_user(authorization)
     with connect() as conn:
         rows = conn.execute(
-            """SELECT a.*, c.cage_code, c.contract_no
+            """SELECT a.*, c.cage_code, c.contract_no, c.status AS cage_status,
+                      c.available AS cage_available,
+                      (SELECT COUNT(*) FROM forfeit_intents i
+                        WHERE i.cage_id=c.id AND i.status='待复核') AS pending_intents,
+                      (SELECT COUNT(*) FROM forfeits f
+                        WHERE f.cage_id=c.id AND f.status='已罚没') AS formal_forfeits
                FROM attestations a
                JOIN cages c ON c.id=a.cage_id
                ORDER BY a.id DESC LIMIT 200"""

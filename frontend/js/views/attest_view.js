@@ -1,7 +1,7 @@
 export const attestViewTemplate = `
 <section class="panel">
   <h2>履约核验</h2>
-  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼，违约后可罚没。</p>
+  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼；违约后只建待复核罚没意图，复核办结前资金不动。</p>
   <div class="grid-2">
     <div>
       <div class="form-row">
@@ -33,7 +33,7 @@ export const attestViewTemplate = `
     <div>
       <table>
         <thead>
-          <tr><th>时间</th><th>笼</th><th>结论</th><th>笼代</th><th>核验员</th><th>证据</th></tr>
+          <tr><th>时间</th><th>笼</th><th>结论</th><th>笼代</th><th>核验员</th><th>证据</th><th>待复核意图</th><th>正式罚没</th></tr>
         </thead>
         <tbody>
           <tr v-for="a in attestations" :key="a.id">
@@ -43,6 +43,8 @@ export const attestViewTemplate = `
             <td>{{ a.attest_gen }}</td>
             <td>{{ a.officer }}</td>
             <td>{{ a.evidence }}</td>
+            <td>{{ a.pending_intents }}</td>
+            <td>{{ a.formal_forfeits }}</td>
           </tr>
         </tbody>
       </table>

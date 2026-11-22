@@ -19,7 +19,7 @@
     "party_key": "P-WEST",
     "party_name": "西岭供应链",
     "balance": 150000,
-    "frozen": 0,
+    "frozen": 30000,
     "status": "正常",
     "created_at": "2026-11-01T09:10:00"
   },

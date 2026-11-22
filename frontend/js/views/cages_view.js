@@ -48,6 +48,8 @@ export const cagesViewTemplate = `
           <div class="amt">{{ fmt(c.available) }} / {{ fmt(c.amount) }}</div>
           <div>{{ c.contract_no }} · 代{{ c.generation }}</div>
           <div>{{ c.party_key }} → {{ c.beneficiary }}</div>
+          <div class="hint" v-if="c.pending_intents">待复核意图 {{ c.pending_intents }} 笔 · {{ fmt(c.pending_amount) }}</div>
+          <div class="hint" v-else>无待复核意图 · 正式罚没 {{ c.formal_forfeits || 0 }} 笔</div>
         </div>
       </div>
     </div>
@@ -62,6 +64,7 @@ export const cagesViewTemplate = `
         <tr><td>核验条数</td><td>{{ cageDetail.attestations.length }}</td></tr>
         <tr><td>拨付条数</td><td>{{ cageDetail.releases.length }}</td></tr>
         <tr><td>罚没条数</td><td>{{ cageDetail.forfeits.length }}</td></tr>
+        <tr><td>待复核意图</td><td>{{ cageDetail.forfeit_intents.length }}</td></tr>
       </tbody>
     </table>
   </div>

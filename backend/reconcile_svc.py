@@ -1,4 +1,8 @@
-"""对账互证：笼面可用 + 已拨付 + 已罚没 须等于笼面金额（同代口径）。"""
+"""对账互证：笼面可用 + 已拨付 + 已罚没 须等于笼面金额（同代口径）。
+
+同源口径：只有复核通过的正式罚没行才进 `forfeited`；待复核意图不计入任何
+一侧（既不算已罚没，也不算可用），因此复核未办结时笼面必须保持平衡。
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -7,6 +11,25 @@ from auth import AuthHeader, require_user
 from db import connect
 
 router = APIRouter(tags=["reconcile"])
+
+
+def _path_audit(conn) -> dict:
+    """同源核验：正式罚没行必须都来自复核通过的意图，不得混入直罚行。"""
+    total = conn.execute("SELECT COUNT(*) c FROM forfeits").fetchone()["c"]
+    unreviewed = conn.execute(
+        """SELECT COUNT(*) c FROM forfeits
+           WHERE intent_id IS NULL OR reviewed_by IS NULL"""
+    ).fetchone()["c"]
+    pending = conn.execute(
+        "SELECT COUNT(*) c FROM forfeit_intents WHERE status='待复核'"
+    ).fetchone()["c"]
+    return {
+        "fate_path": "乙",
+        "formal_rows": int(total),
+        "unreviewed_formal_rows": int(unreviewed),
+        "pending_intents": int(pending),
+        "same_source": int(unreviewed) == 0,
+    }
 
 
 def _reconcile_cage(conn, cage) -> dict:
@@ -24,6 +47,12 @@ def _reconcile_cage(conn, cage) -> dict:
            WHERE cage_id=? AND status='已罚没' AND cage_generation=?""",
         (cage_id, gen),
     ).fetchone()["s"]
+    pending_rows = conn.execute(
+        """SELECT COALESCE(SUM(amount),0) s, COUNT(*) c FROM forfeit_intents
+           WHERE cage_id=? AND cage_generation=? AND status='待复核'""",
+        (cage_id, gen),
+    ).fetchone()
+    pending = float(pending_rows["s"] or 0)
     accounted = round(float(available) + float(released) + float(forfeited), 6)
     ok = abs(accounted - amount) < 1e-6
     # 账户侧：该当事人冻结额应覆盖所有仍冻结/核验中的笼可用
@@ -48,6 +77,8 @@ def _reconcile_cage(conn, cage) -> dict:
         "available": available,
         "released": float(released),
         "forfeited": float(forfeited),
+        "pending_intent_amount": pending,
+        "pending_intent_count": int(pending_rows["c"] or 0),
         "accounted": accounted,
         "balanced": ok,
         "gap": round(amount - accounted, 6),
@@ -58,6 +89,7 @@ def _reconcile_cage(conn, cage) -> dict:
             "formula": "available + released + forfeited == amount（同笼代）",
             "left": accounted,
             "right": amount,
+            "pending_not_counted": pending,
         },
     }
 
@@ -76,6 +108,7 @@ def reconcile_all(authorization: AuthHeader = None):
                 "balanced": len(items) - len(bad),
                 "unbalanced": len(bad),
             },
+            "path_audit": _path_audit(conn),
         }
 
 
@@ -121,16 +154,24 @@ def party_proof(party_key: str, authorization: AuthHeader = None):
         ).fetchone()["s"]
         frozen = float(acct["frozen"])
         live_f = float(live)
+        pending = conn.execute(
+            """SELECT COALESCE(SUM(i.amount),0) s FROM forfeit_intents i
+               JOIN cages c ON c.id=i.cage_id
+               WHERE c.party_key=? AND i.status='待复核'""",
+            (party_key,),
+        ).fetchone()["s"]
         return {
             "party_key": party_key,
             "account": dict(acct),
             "live_cage_available": live_f,
+            "pending_intent_amount": float(pending or 0),
             "released_total": float(released),
             "forfeited_total": float(forfeited),
             "frozen_matches_live": abs(frozen - live_f) < 1e-6,
             "proof": {
-                "formula": "account.frozen == sum(live cage available)",
+                "formula": "account.frozen == sum(live cage available)，待复核意图不改冻结",
                 "left": frozen,
                 "right": live_f,
+                "pending_not_counted": float(pending or 0),
             },
         }

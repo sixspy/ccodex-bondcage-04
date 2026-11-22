@@ -1,7 +1,36 @@
 export const auditViewTemplate = `
 <section class="panel">
   <h2>审计争用</h2>
-  <p class="hint">写动作落审计；后到争用只记 contention，不写业务。</p>
+  <p class="hint">写动作落审计；后到争用只记 contention，不写业务。罚没链路：意图 → 复核 → 正式行须同源。</p>
+  <div v-if="forfeitChain.summary" class="hint">
+    罚没链路：共 {{ forfeitChain.summary.total }} 条 · 同源 {{ forfeitChain.summary.consistent }}
+    · 不同源 {{ forfeitChain.summary.inconsistent }} · 罚没偏航 {{ forfeitChain.summary.fate_drift }}
+    · 路径 {{ forfeitChain.summary.fate_path }}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>意图号</th><th>笼</th><th>金额</th><th>代</th><th>状态</th>
+        <th>提出人</th><th>复核人</th><th>复核意见</th><th>正式行</th><th>同源</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="i in (forfeitChain.items||[])" :key="i.id">
+        <td>{{ i.intent_ref }}</td>
+        <td>{{ i.cage_code }}</td>
+        <td>{{ fmt(i.amount) }}</td>
+        <td>{{ i.cage_generation }}</td>
+        <td>{{ i.status }}</td>
+        <td>{{ i.requested_by }}</td>
+        <td>{{ i.reviewed_by }}</td>
+        <td>{{ i.review_note }}</td>
+        <td>{{ i.forfeit_ref || '—' }}</td>
+        <td>
+          <span class="badge" :class="i.consistent?'pass':'fail'">{{ i.consistent ? '是' : '否' }}</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
   <div class="grid-2">
     <div>
       <h3>审计</h3>

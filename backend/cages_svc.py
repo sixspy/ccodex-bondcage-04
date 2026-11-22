@@ -22,12 +22,20 @@ def _next_cage_code(conn, party_key: str) -> str:
 def list_cages(authorization: AuthHeader = None, status: str | None = None):
     require_user(authorization)
     with connect() as conn:
+        sql = """SELECT c.*,
+                   (SELECT COUNT(*) FROM forfeit_intents i
+                     WHERE i.cage_id=c.id AND i.status='待复核') AS pending_intents,
+                   (SELECT COALESCE(SUM(i.amount),0) FROM forfeit_intents i
+                     WHERE i.cage_id=c.id AND i.status='待复核') AS pending_amount,
+                   (SELECT COUNT(*) FROM forfeits f
+                     WHERE f.cage_id=c.id AND f.status='已罚没') AS formal_forfeits
+                 FROM cages c"""
         if status:
             rows = conn.execute(
-                "SELECT * FROM cages WHERE status=? ORDER BY id DESC", (status,)
+                sql + " WHERE c.status=? ORDER BY c.id DESC", (status,)
             ).fetchall()
         else:
-            rows = conn.execute("SELECT * FROM cages ORDER BY id DESC").fetchall()
+            rows = conn.execute(sql + " ORDER BY c.id DESC").fetchall()
         return {"items": [dict(r) for r in rows]}
 
 
@@ -50,11 +58,16 @@ def get_cage(cage_id: int, authorization: AuthHeader = None):
             "SELECT * FROM forfeits WHERE cage_id=? ORDER BY id DESC",
             (cage_id,),
         ).fetchall()
+        intents = conn.execute(
+            "SELECT * FROM forfeit_intents WHERE cage_id=? ORDER BY id DESC",
+            (cage_id,),
+        ).fetchall()
         return {
             "cage": dict(cage),
             "attestations": [dict(a) for a in atts],
             "releases": [dict(r) for r in rels],
             "forfeits": [dict(f) for f in fors],
+            "forfeit_intents": [dict(i) for i in intents],
         }
 
 

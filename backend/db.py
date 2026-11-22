@@ -109,7 +109,33 @@ CREATE TABLE IF NOT EXISTS forfeits(
   status TEXT NOT NULL,
   forfeit_ref TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  intent_id INTEGER,
+  reviewed_by TEXT,
+  review_note TEXT,
   FOREIGN KEY(cage_id) REFERENCES cages(id)
+);
+CREATE TABLE IF NOT EXISTS forfeit_intents(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cage_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  reason TEXT NOT NULL,
+  cage_generation INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  intent_ref TEXT NOT NULL,
+  requested_by TEXT NOT NULL,
+  reviewed_by TEXT,
+  review_decision TEXT,
+  review_note TEXT,
+  forfeit_id INTEGER,
+  created_at TEXT NOT NULL,
+  reviewed_at TEXT,
+  FOREIGN KEY(cage_id) REFERENCES cages(id)
+);
+CREATE TABLE IF NOT EXISTS forfeit_fate_note(
+  id INTEGER PRIMARY KEY CHECK(id=1),
+  path TEXT NOT NULL,
+  locked_on TEXT NOT NULL,
+  note TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS cage_locks(
   lock_key TEXT PRIMARY KEY,
@@ -256,26 +282,73 @@ def seed_cages(conn: sqlite3.Connection) -> None:
 
 
 def seed_attest_samples(conn: sqlite3.Connection) -> None:
-    """为已冻结笼预置一条待核验说明，便于页面冷启动有可读业务。"""
+    """种子违约态笼须带同笼代违约核验，否则罚没写口无从对齐。"""
     rows = conn.execute(
-        "SELECT id, generation FROM cages WHERE status='已冻结' ORDER BY id"
+        """SELECT id, cage_code, generation FROM cages
+           WHERE status='核验违约' ORDER BY id"""
     ).fetchall()
-    for cage in rows[:2]:
+    for cage in rows:
         n = conn.execute(
             "SELECT COUNT(*) c FROM attestations WHERE cage_id=?", (cage["id"],)
         ).fetchone()["c"]
         if n:
             continue
-        # 不预置通过/违约结论，只保证表可查；实际核验由业务动作写入
+        conn.execute(
+            """INSERT INTO attestations(cage_id,outcome,evidence,attest_gen,officer,created_at)
+               VALUES (?,?,?,?,?,?)""",
+            (
+                cage["id"],
+                "违约",
+                "种子违约态（事故夹具用）",
+                int(cage["generation"]),
+                "seed",
+                now_iso(),
+            ),
+        )
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """老库补列：CREATE TABLE IF NOT EXISTS 不会给已存在的表加字段。"""
+    wanted = {
+        "forfeits": {
+            "intent_id": "INTEGER",
+            "reviewed_by": "TEXT",
+            "review_note": "TEXT",
+        },
+    }
+    for table, cols in wanted.items():
+        existing = {
+            r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        for name, decl in cols.items():
+            if name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
+def seed_fate_note(conn: sqlite3.Connection) -> None:
+    """把罚没复核命运说明当日锁死写库；已锁死的口径不再改写。"""
+    from forfeit_fate import FATE_PATH, LOCKED_ON, NOTE
+
+    conn.execute(
+        """INSERT OR IGNORE INTO forfeit_fate_note(id,path,locked_on,note)
+           VALUES (1,?,?,?)""",
+        (
+            FATE_PATH,
+            LOCKED_ON,
+            json.dumps(NOTE, ensure_ascii=False),
+        ),
+    )
 
 
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        _ensure_columns(conn)
         seed_users(conn)
         seed_bonds(conn)
         seed_cages(conn)
         seed_attest_samples(conn)
+        seed_fate_note(conn)
         conn.commit()
 
 

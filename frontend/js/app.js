@@ -36,6 +36,9 @@ createApp({
     const attestations = ref([]);
     const releases = ref([]);
     const forfeits = ref([]);
+    const forfeitIntents = ref([]);
+    const forfeitFate = ref(null);
+    const forfeitChain = ref({ items: [], summary: {} });
     const recon = ref({});
     const partyProof = ref(null);
     const proofParty = ref("P-EAST");
@@ -80,6 +83,10 @@ createApp({
       cage_id: 0,
       amount: null,
       reason: "履约违约",
+    });
+    const reviewForm = ref({
+      notes: {},
+      decisions: {},
     });
     const topupForm = ref({
       cage_id: 0,
@@ -195,6 +202,9 @@ createApp({
           lk,
           tj,
           sj,
+          fi,
+          ff,
+          fc,
         ] = await Promise.all([
           api.bonds(),
           api.cages(),
@@ -207,6 +217,9 @@ createApp({
           api.locks(),
           api.topupJobs(),
           api.splitJobs(),
+          api.forfeitIntents(),
+          api.forfeitFate(),
+          api.forfeitChain(),
         ]);
         bonds.value = b.items || [];
         cages.value = c.items || [];
@@ -219,6 +232,9 @@ createApp({
         locks.value = lk.items || [];
         topupJobs.value = tj.items || [];
         splitJobs.value = sj.items || [];
+        forfeitIntents.value = fi.items || [];
+        forfeitFate.value = ff || null;
+        forfeitChain.value = fc || { items: [], summary: {} };
         if (!attestForm.value.cage_id && frozenCages.value.length) {
           attestForm.value.cage_id = frozenCages.value[0].id;
         }
@@ -335,12 +351,35 @@ createApp({
         };
         if (forfeitForm.value.amount) payload.amount = forfeitForm.value.amount;
         const row = await api.forfeit(payload);
-        flashOk(`罚没成功 ${row.forfeit_ref}`);
+        flashOk(`已建待复核罚没意图 ${row.intent_ref}（资金仍在笼内）`);
         await refresh();
       } catch (e) {
         flashErr(e);
       }
     }
+
+    async function reviewIntent(intent, decision) {
+      clearFlash();
+      try {
+        const note = reviewForm.value.notes[intent.id] || "";
+        const r = await api.forfeitReview(intent.id, { decision, note });
+        if (decision === "通过") {
+          flashOk(`复核通过，已入册扣款 ${r.forfeit.forfeit_ref}`);
+        } else {
+          flashOk(`复核驳回，意图 ${r.intent.intent_ref} 作废，正式罚没零增`);
+        }
+        await refresh();
+      } catch (e) {
+        flashErr(e);
+      }
+    }
+
+    const pendingIntents = computed(() =>
+      forfeitIntents.value.filter((i) => i.status === "待复核")
+    );
+    const doneIntents = computed(() =>
+      forfeitIntents.value.filter((i) => i.status !== "待复核")
+    );
 
     async function loadReconcile() {
       clearFlash();
@@ -405,6 +444,11 @@ createApp({
       attestations,
       releases,
       forfeits,
+      forfeitIntents,
+      forfeitFate,
+      forfeitChain,
+      pendingIntents,
+      doneIntents,
       recon,
       partyProof,
       proofParty,
@@ -423,6 +467,7 @@ createApp({
       attestForm,
       releaseForm,
       forfeitForm,
+      reviewForm,
       topupForm,
       splitForm,
       frozenCages,
@@ -442,6 +487,7 @@ createApp({
       doAttest,
       doRelease,
       doForfeit,
+      reviewIntent,
       loadReconcile,
       loadProof,
       doTopupStub,
@@ -479,6 +525,12 @@ createApp({
       <div class="dash-chip"><div class="k">冻结可用</div><div class="v">{{ fmt(dash.frozen_available) }}</div></div>
       <div class="dash-chip"><div class="k">已拨付</div><div class="v">{{ fmt(dash.released_total) }}</div></div>
       <div class="dash-chip"><div class="k">已罚没</div><div class="v">{{ fmt(dash.forfeited_total) }}</div></div>
+      <div class="dash-chip"><div class="k">罚没路径</div><div class="v">{{ forfeitFate ? forfeitFate.path : '—' }}</div></div>
+      <div class="dash-chip"><div class="k">待复核意图</div><div class="v">{{ pendingIntents.length }}</div></div>
+    </div>
+    <div class="stub-banner" v-if="forfeitFate">
+      罚没复核命运说明已锁死（{{ forfeitFate.locked_on }}）：路径 {{ forfeitFate.path }} ·
+      {{ forfeitFate.note.path_name }}。{{ forfeitFate.note.fund_fate_before_review }}
     </div>
     <nav class="nav">
       <button v-for="(n,i) in nav" :key="n" :class="{active: tab===i}" @click="tab=i">{{ n }}</button>

@@ -17,12 +17,17 @@ export const reconcileViewTemplate = `
   </div>
   <div v-if="recon.summary" class="hint">
     合计 {{ recon.summary.total }} · 平衡 {{ recon.summary.balanced }} · 失衡 {{ recon.summary.unbalanced }}
+    <span v-if="recon.path_audit">
+      · 罚没同源 {{ recon.path_audit.same_source ? '是' : '否' }}
+      · 未复核正式行 {{ recon.path_audit.unreviewed_formal_rows }}
+      · 待复核意图 {{ recon.path_audit.pending_intents }}
+    </span>
   </div>
   <table>
     <thead>
       <tr>
         <th>笼</th><th>代</th><th>状态</th><th>总额</th><th>可用</th>
-        <th>拨付</th><th>罚没</th><th>合计</th><th>平衡</th><th>缺口</th>
+        <th>拨付</th><th>罚没</th><th>待复核意图</th><th>合计</th><th>平衡</th><th>缺口</th>
       </tr>
     </thead>
     <tbody>
@@ -34,6 +39,7 @@ export const reconcileViewTemplate = `
         <td>{{ fmt(i.available) }}</td>
         <td>{{ fmt(i.released) }}</td>
         <td>{{ fmt(i.forfeited) }}</td>
+        <td>{{ fmt(i.pending_intent_amount) }} <small>({{ i.pending_intent_count }})</small></td>
         <td>{{ fmt(i.accounted) }}</td>
         <td>
           <span class="badge" :class="i.balanced?'pass':'fail'">{{ i.balanced ? '是' : '否' }}</span>

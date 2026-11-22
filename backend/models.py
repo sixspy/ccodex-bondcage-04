@@ -40,6 +40,14 @@ class ForfeitIn(BaseModel):
     cage_id: int
     amount: float | None = None
     reason: str = "履约违约"
+    # 命运口径只认锁死的乙路径；显式传其他值会被记偏航并拒写。
+    fate_path: str | None = None
+
+
+class ForfeitReviewIn(BaseModel):
+    decision: str
+    note: str = ""
+    fate_path: str | None = None
 
 
 class TopupIn(BaseModel):
