@@ -50,13 +50,6 @@ export function createApi(getToken, onUnauthorized) {
     forfeits: () => req("/api/forfeits"),
     forfeit: (data) =>
       req("/api/forfeits", { method: "POST", body: JSON.stringify(data) }),
-    forfeitOrders: () => req("/api/forfeit-orders"),
-    forfeitDoctrine: () => req("/api/forfeits/doctrine"),
-    reviewForfeit: (id, data) =>
-      req(`/api/forfeit-orders/${id}/review`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
     reconcile: () => req("/api/reconcile"),
     reconcileOne: (code) => req(`/api/reconcile/${encodeURIComponent(code)}`),
     proof: (party) => req(`/api/proof/${encodeURIComponent(party)}`),

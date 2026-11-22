@@ -1,11 +1,10 @@
-"""履约核验：通过后允许解笼；违约后只允许登记影子罚没并复核晋升。"""
+"""履约核验：通过后允许解笼；违约后允许罚没。"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
 from auth import AuthHeader, require_user, require_writer
 from db import connect, now_iso, write_audit
-from doctrine import FORFEIT_MODE, MINUTES_DOC
 from locks import release, require_lock
 from models import AttestIn
 
@@ -16,16 +15,12 @@ ALLOWED = {"通过", "违约"}
 
 @router.get("/api/attestations")
 def list_attestations(authorization: AuthHeader = None):
-    """核验列表：同源带出该笼待复核影子罚没单（与罚没页同一库表）。"""
     require_user(authorization)
     with connect() as conn:
         rows = conn.execute(
-            """SELECT a.*, c.cage_code, c.contract_no,
-                      o.id AS pending_order_id, o.amount AS pending_order_amount
+            """SELECT a.*, c.cage_code, c.contract_no
                FROM attestations a
                JOIN cages c ON c.id=a.cage_id
-               LEFT JOIN forfeit_orders o
-                 ON o.cage_id=a.cage_id AND o.status='待复核'
                ORDER BY a.id DESC LIMIT 200"""
         ).fetchall()
         return {"items": [dict(r) for r in rows]}
@@ -86,8 +81,6 @@ def create_attestation(body: AttestIn, authorization: AuthHeader = None):
                     "outcome": body.outcome,
                     "attest_gen": gen,
                     "evidence": body.evidence or "",
-                    "forfeit_doctrine": FORFEIT_MODE,
-                    "minutes": MINUTES_DOC,
                 },
             )
             conn.commit()

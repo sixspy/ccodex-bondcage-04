@@ -111,22 +111,6 @@ CREATE TABLE IF NOT EXISTS forfeits(
   created_at TEXT NOT NULL,
   FOREIGN KEY(cage_id) REFERENCES cages(id)
 );
-CREATE TABLE IF NOT EXISTS forfeit_orders(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  cage_id INTEGER NOT NULL,
-  amount REAL NOT NULL,
-  reason TEXT NOT NULL,
-  cage_generation INTEGER NOT NULL,
-  status TEXT NOT NULL,
-  order_ref TEXT NOT NULL,
-  created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL,
-  reviewed_by TEXT,
-  reviewed_at TEXT,
-  review_note TEXT,
-  forfeit_id INTEGER,
-  FOREIGN KEY(cage_id) REFERENCES cages(id)
-);
 CREATE TABLE IF NOT EXISTS cage_locks(
   lock_key TEXT PRIMARY KEY,
   holder TEXT NOT NULL,
@@ -285,102 +269,6 @@ def seed_attest_samples(conn: sqlite3.Connection) -> None:
         # 不预置通过/违约结论，只保证表可查；实际核验由业务动作写入
 
 
-def seed_breach_fixture(conn: sqlite3.Connection) -> None:
-    """种子违约态笼（假绿事故夹具）：账户 + 核验违约笼 + 对齐笼代的违约核验。
-
-    数据在 fixtures/breach_cages.json；幂等，供事故复现与罚没复核测试使用。
-    """
-    data = _load_json("breach_cages.json") or {}
-    for row in data.get("accounts", []):
-        exists = conn.execute(
-            "SELECT id FROM bond_accounts WHERE party_key=?", (row["party_key"],)
-        ).fetchone()
-        if exists:
-            continue
-        conn.execute(
-            """INSERT INTO bond_accounts(party_key,party_name,balance,frozen,status,created_at)
-               VALUES (?,?,?,?,?,?)""",
-            (
-                row["party_key"],
-                row["party_name"],
-                float(row["balance"]),
-                float(row.get("frozen", 0)),
-                row.get("status", "正常"),
-                row.get("created_at", now_iso()),
-            ),
-        )
-        if float(row["balance"]) > 0:
-            conn.execute(
-                """INSERT INTO deposit_ledger(party_key,amount,memo,created_at,actor)
-                   VALUES (?,?,?,?,?)""",
-                (
-                    row["party_key"],
-                    float(row["balance"]),
-                    "种子入金",
-                    row.get("created_at", now_iso()),
-                    "seed",
-                ),
-            )
-    code_to_id: dict[str, int] = {}
-    for row in data.get("cages", []):
-        exists = conn.execute(
-            "SELECT id FROM cages WHERE cage_code=?", (row["cage_code"],)
-        ).fetchone()
-        if exists:
-            code_to_id[row["cage_code"]] = int(exists["id"])
-            continue
-        amount = float(row["amount"])
-        cur = conn.execute(
-            """INSERT INTO cages(cage_code,party_key,contract_no,amount,available,
-               generation,status,beneficiary,created_at,frozen_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (
-                row["cage_code"],
-                row["party_key"],
-                row["contract_no"],
-                amount,
-                float(row.get("available", amount)),
-                int(row.get("generation", 1)),
-                row.get("status", "核验违约"),
-                row["beneficiary"],
-                row.get("created_at", now_iso()),
-                row.get("frozen_at"),
-            ),
-        )
-        code_to_id[row["cage_code"]] = int(cur.lastrowid)
-    for row in data.get("attestations", []):
-        cage_id = code_to_id.get(row["cage_code"])
-        if cage_id is None:
-            hit = conn.execute(
-                "SELECT id FROM cages WHERE cage_code=?", (row["cage_code"],)
-            ).fetchone()
-            cage_id = int(hit["id"]) if hit else None
-        if cage_id is None:
-            continue
-        gen = conn.execute(
-            "SELECT generation FROM cages WHERE id=?", (cage_id,)
-        ).fetchone()["generation"]
-        dup = conn.execute(
-            """SELECT id FROM attestations
-               WHERE cage_id=? AND attest_gen=? AND outcome=?""",
-            (cage_id, int(gen), row["outcome"]),
-        ).fetchone()
-        if dup:
-            continue
-        conn.execute(
-            """INSERT INTO attestations(cage_id,outcome,evidence,attest_gen,officer,created_at)
-               VALUES (?,?,?,?,?,?)""",
-            (
-                cage_id,
-                row["outcome"],
-                row.get("evidence", ""),
-                int(gen),
-                row.get("officer", "seed"),
-                row.get("created_at", now_iso()),
-            ),
-        )
-
-
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
@@ -388,7 +276,6 @@ def init_db() -> None:
         seed_bonds(conn)
         seed_cages(conn)
         seed_attest_samples(conn)
-        seed_breach_fixture(conn)
         conn.commit()
 
 
@@ -404,12 +291,6 @@ def dashboard_stats(conn: sqlite3.Connection) -> dict:
     forfeited = conn.execute(
         "SELECT COALESCE(SUM(amount),0) s FROM forfeits WHERE status='已罚没'"
     ).fetchone()["s"]
-    pending_orders = conn.execute(
-        "SELECT COUNT(*) c FROM forfeit_orders WHERE status='待复核'"
-    ).fetchone()["c"]
-    pending_amount = conn.execute(
-        "SELECT COALESCE(SUM(amount),0) s FROM forfeit_orders WHERE status='待复核'"
-    ).fetchone()["s"]
     stubs = {
         "topup_jobs": conn.execute("SELECT COUNT(*) c FROM topup_jobs").fetchone()["c"],
         "split_jobs": conn.execute("SELECT COUNT(*) c FROM split_jobs").fetchone()["c"],
@@ -420,8 +301,6 @@ def dashboard_stats(conn: sqlite3.Connection) -> dict:
         "frozen_available": frozen,
         "released_total": released,
         "forfeited_total": forfeited,
-        "pending_forfeit_orders": pending_orders,
-        "pending_forfeit_amount": pending_amount,
         "stubs": stubs,
         "meta": PRODUCT_META,
     }

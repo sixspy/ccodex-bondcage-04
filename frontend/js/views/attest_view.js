@@ -1,7 +1,7 @@
 export const attestViewTemplate = `
 <section class="panel">
   <h2>履约核验</h2>
-  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼；违约后按锁定纪要（{{ forfeitDoctrine.mode || '影子罚没待复核晋升' }}）登记影子罚没，复核岗换人签字才晋升，核验页与罚没页同源。</p>
+  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼，违约后可罚没。</p>
   <div class="grid-2">
     <div>
       <div class="form-row">
@@ -33,7 +33,7 @@ export const attestViewTemplate = `
     <div>
       <table>
         <thead>
-          <tr><th>时间</th><th>笼</th><th>结论</th><th>笼代</th><th>核验员</th><th>待复核影子</th><th>证据</th></tr>
+          <tr><th>时间</th><th>笼</th><th>结论</th><th>笼代</th><th>核验员</th><th>证据</th></tr>
         </thead>
         <tbody>
           <tr v-for="a in attestations" :key="a.id">
@@ -42,10 +42,6 @@ export const attestViewTemplate = `
             <td><span class="badge" :class="a.outcome==='通过'?'pass':'fail'">{{ a.outcome }}</span></td>
             <td>{{ a.attest_gen }}</td>
             <td>{{ a.officer }}</td>
-            <td>
-              <span v-if="a.pending_order_id" class="badge frozen">单#{{ a.pending_order_id }} · {{ fmt(a.pending_order_amount) }}</span>
-              <span v-else>—</span>
-            </td>
             <td>{{ a.evidence }}</td>
           </tr>
         </tbody>

@@ -1,8 +1,4 @@
-"""对账互证：笼面可用 + 已拨付 + 已罚没 须等于笼面金额（同代口径）。
-
-影子罚没单（待复核）不计入已罚没：晋升前笼面可用不动，公式恒平衡；
-晋升在同一事务内切账，公式仍平衡。账实不得分裂。
-"""
+"""对账互证：笼面可用 + 已拨付 + 已罚没 须等于笼面金额（同代口径）。"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -28,15 +24,8 @@ def _reconcile_cage(conn, cage) -> dict:
            WHERE cage_id=? AND status='已罚没' AND cage_generation=?""",
         (cage_id, gen),
     ).fetchone()["s"]
-    pending_forfeit = conn.execute(
-        """SELECT COALESCE(SUM(amount),0) s FROM forfeit_orders
-           WHERE cage_id=? AND status='待复核'""",
-        (cage_id,),
-    ).fetchone()["s"]
     accounted = round(float(available) + float(released) + float(forfeited), 6)
     ok = abs(accounted - amount) < 1e-6
-    # 影子单只占意图：不得越出笼面可用，更不得计入已罚没
-    shadow_ok = float(pending_forfeit) <= available + 1e-6
     # 账户侧：该当事人冻结额应覆盖所有仍冻结/核验中的笼可用
     party = cage["party_key"]
     acct = conn.execute(
@@ -59,8 +48,6 @@ def _reconcile_cage(conn, cage) -> dict:
         "available": available,
         "released": float(released),
         "forfeited": float(forfeited),
-        "pending_forfeit": float(pending_forfeit),
-        "shadow_within_available": shadow_ok,
         "accounted": accounted,
         "balanced": ok,
         "gap": round(amount - accounted, 6),
@@ -68,7 +55,7 @@ def _reconcile_cage(conn, cage) -> dict:
         "account_frozen": float(acct["frozen"]) if acct else None,
         "live_cage_available": float(live_frozen),
         "proof": {
-            "formula": "available + released + forfeited == amount（同笼代）；影子罚没（待复核）不计入，晋升时同一事务切账",
+            "formula": "available + released + forfeited == amount（同笼代）",
             "left": accounted,
             "right": amount,
         },
@@ -132,12 +119,6 @@ def party_proof(party_key: str, authorization: AuthHeader = None):
                WHERE c.party_key=? AND f.status='已罚没'""",
             (party_key,),
         ).fetchone()["s"]
-        pending_forfeit = conn.execute(
-            """SELECT COALESCE(SUM(o.amount),0) s FROM forfeit_orders o
-               JOIN cages c ON c.id=o.cage_id
-               WHERE c.party_key=? AND o.status='待复核'""",
-            (party_key,),
-        ).fetchone()["s"]
         frozen = float(acct["frozen"])
         live_f = float(live)
         return {
@@ -146,10 +127,9 @@ def party_proof(party_key: str, authorization: AuthHeader = None):
             "live_cage_available": live_f,
             "released_total": float(released),
             "forfeited_total": float(forfeited),
-            "pending_forfeit_total": float(pending_forfeit),
             "frozen_matches_live": abs(frozen - live_f) < 1e-6,
             "proof": {
-                "formula": "account.frozen == sum(live cage available)（影子罚没不扣冻结，晋升才同一事务扣减）",
+                "formula": "account.frozen == sum(live cage available)",
                 "left": frozen,
                 "right": live_f,
             },
