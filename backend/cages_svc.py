@@ -50,16 +50,11 @@ def get_cage(cage_id: int, authorization: AuthHeader = None):
             "SELECT * FROM forfeits WHERE cage_id=? ORDER BY id DESC",
             (cage_id,),
         ).fetchall()
-        intents = conn.execute(
-            "SELECT * FROM forfeit_intents WHERE cage_id=? ORDER BY id DESC",
-            (cage_id,),
-        ).fetchall()
         return {
             "cage": dict(cage),
             "attestations": [dict(a) for a in atts],
             "releases": [dict(r) for r in rels],
             "forfeits": [dict(f) for f in fors],
-            "forfeit_intents": [dict(i) for i in intents],
         }
 
 
@@ -69,8 +64,8 @@ def freeze_cage(body: CageFreezeIn, authorization: AuthHeader = None):
     user = require_writer(authorization)
     lock_key = f"bond:{body.party_key}"
     with connect() as conn:
+        require_lock(conn, lock_key, user)
         try:
-            require_lock(conn, lock_key, user)
             acct = conn.execute(
                 "SELECT * FROM bond_accounts WHERE party_key=?",
                 (body.party_key,),

@@ -1,6 +1,6 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
 data/*.db
-data/*.db-journal
+data/*.db-*
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/

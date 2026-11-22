@@ -40,15 +40,6 @@ class ForfeitIn(BaseModel):
     cage_id: int
     amount: float | None = None
     reason: str = "履约违约"
-    # 乙路径：只允许落待复核意图；要求直进罚没册即偏离命运说明
-    mode: str = "待复核意图"
-
-
-class ReviewIn(BaseModel):
-    decision: str
-    note: str = ""
-    # 复核不得改金额；夹带 amount 即罚没偏航
-    amount: float | None = None
 
 
 class TopupIn(BaseModel):

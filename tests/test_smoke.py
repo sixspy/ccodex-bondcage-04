@@ -81,7 +81,6 @@ def test_freeze_attest_release_flow():
 def test_forfeit_path():
     c = TestClient(app)
     h = _auth(c)
-    h_clerk = _auth(c, "clerk")
     cages = c.get("/api/cages", headers=h).json()["items"]
     frozen = [x for x in cages if x["status"] == "已冻结"][0]
     assert (
@@ -105,35 +104,15 @@ def test_forfeit_path():
         ).status_code
         == 409
     )
-    # 乙路径：罚没提交只落待复核意图，笼面零扣
     fr = c.post(
         "/api/forfeits",
         headers=h,
         json={"cage_id": frozen["id"], "reason": "逾期未履约"},
     )
     assert fr.status_code == 200
-    assert fr.json()["status"] == "待复核"
-    mid = c.get(f"/api/reconcile/{frozen['cage_code']}", headers=h).json()
-    assert mid["forfeited"] == 0
-    assert mid["pending_intents"] == frozen["available"]
-    # 复核岗（分人）通过后才原子入册扣款
-    rv = c.post(
-        f"/api/forfeit-intents/{fr.json()['id']}/review",
-        headers=h_clerk,
-        json={"decision": "通过", "note": "证据确凿"},
-    )
-    assert rv.status_code == 200
-    assert rv.json()["status"] == "已晋升"
-    formal = [
-        f
-        for f in c.get("/api/forfeits", headers=h).json()["items"]
-        if f["cage_code"] == frozen["cage_code"]
-    ]
-    assert len(formal) == 1
-    assert formal[0]["status"] == "已罚没"
+    assert fr.json()["status"] == "已罚没"
     recon = c.get(f"/api/reconcile/{frozen['cage_code']}", headers=h).json()
     assert recon["balanced"] is True
-    assert recon["ledger_matches_intents"] is True
 
 
 def test_lock_contention():

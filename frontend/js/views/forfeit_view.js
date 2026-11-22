@@ -1,14 +1,9 @@
 export const forfeitViewTemplate = `
 <section class="panel">
-  <h2>罚没册 · 复核台</h2>
-  <p class="hint">
-    乙路径·复核前笼面零扣（命运说明 2026-11-22 锁死）：提交只落「待复核意图」，
-    笼面与账户冻结零改；复核岗（须与提交人分人）通过才原子入正式册并扣笼减冻，
-    驳回则意图作废、册与笼面始终零改。任何直进罚没册的写企图记「罚没偏航」并拒写。
-  </p>
+  <h2>罚没册</h2>
+  <p class="hint">仅核验违约的笼可罚没。资金离开当事人账户，进入罚没册，不再回到可用余额。</p>
   <div class="grid-2">
     <div>
-      <h3>提交罚没意图</h3>
       <div class="form-row">
         <div>
           <label>违约态笼</label>
@@ -29,10 +24,10 @@ export const forfeitViewTemplate = `
         </div>
       </div>
       <div class="actions">
-        <button class="danger" @click="doForfeit">提交罚没意图</button>
+        <button class="danger" @click="doForfeit">执行罚没</button>
       </div>
-      <p class="hint">提交后资金仍在笼内冻结，等复核办结才定命运。</p>
-      <h3 style="margin-top:14px">正式罚没册（只来自复核通过）</h3>
+    </div>
+    <div>
       <table>
         <thead>
           <tr><th>凭证</th><th>笼</th><th>金额</th><th>原因</th><th>笼代</th><th>时间</th></tr>
@@ -46,50 +41,6 @@ export const forfeitViewTemplate = `
             <td>{{ f.cage_generation }}</td>
             <td>{{ f.created_at }}</td>
           </tr>
-        </tbody>
-      </table>
-    </div>
-    <div>
-      <h3>待复核队列（{{ pendingIntents.length }}）</h3>
-      <table>
-        <thead>
-          <tr><th>意图凭证</th><th>笼</th><th>金额</th><th>提交人</th><th>复核意见</th><th>办结</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="i in pendingIntents" :key="i.id">
-            <td>{{ i.intent_ref }}</td>
-            <td>{{ i.cage_code }}</td>
-            <td>{{ fmt(i.amount) }}</td>
-            <td>{{ i.officer }}</td>
-            <td><input v-model="noteDrafts[i.id]" placeholder="复核意见（可空）"/></td>
-            <td>
-              <div class="actions">
-                <button class="ok" @click="doReview(i, '通过')">通过</button>
-                <button class="secondary" @click="doReview(i, '驳回')">驳回</button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="!pendingIntents.length"><td colspan="6">无待复核意图</td></tr>
-        </tbody>
-      </table>
-      <h3 style="margin-top:14px">意图办结史</h3>
-      <table>
-        <thead>
-          <tr><th>意图凭证</th><th>笼</th><th>金额</th><th>状态</th><th>复核人</th><th>意见</th><th>正式行</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="i in settledIntents" :key="i.id">
-            <td>{{ i.intent_ref }}</td>
-            <td>{{ i.cage_code }}</td>
-            <td>{{ fmt(i.amount) }}</td>
-            <td>
-              <span class="badge" :class="i.status==='已晋升'?'pass':(i.status==='已作废'?'done':'frozen')">{{ i.status }}</span>
-            </td>
-            <td>{{ i.reviewer }}</td>
-            <td>{{ i.review_note }}</td>
-            <td>{{ i.forfeit_id || '—' }}</td>
-          </tr>
-          <tr v-if="!settledIntents.length"><td colspan="7">暂无办结记录</td></tr>
         </tbody>
       </table>
     </div>

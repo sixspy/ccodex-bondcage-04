@@ -1,7 +1,7 @@
 export const reconcileViewTemplate = `
 <section class="panel">
   <h2>对账互证</h2>
-  <p class="hint">笼口径：可用 + 已拨付 + 已罚没 = 笼总额（同笼代，只认正式册）。当事人口径：账户冻结 = 活笼可用合计。待复核罚没意图未扣笼，不计入公式，单列展示；已晋升意图合计须等于正式册罚没合计。</p>
+  <p class="hint">笼口径：可用 + 已拨付 + 已罚没 = 笼总额（同笼代）。当事人口径：账户冻结 = 活笼可用合计。</p>
   <div class="actions">
     <button @click="loadReconcile">刷新对账</button>
     <button class="secondary" @click="loadProof">当事人互证</button>
@@ -16,13 +16,13 @@ export const reconcileViewTemplate = `
     </div>
   </div>
   <div v-if="recon.summary" class="hint">
-    合计 {{ recon.summary.total }} · 平衡 {{ recon.summary.balanced }} · 失衡 {{ recon.summary.unbalanced }} · 册图不符 {{ recon.summary.intents_mismatched || 0 }}
+    合计 {{ recon.summary.total }} · 平衡 {{ recon.summary.balanced }} · 失衡 {{ recon.summary.unbalanced }}
   </div>
   <table>
     <thead>
       <tr>
         <th>笼</th><th>代</th><th>状态</th><th>总额</th><th>可用</th>
-        <th>拨付</th><th>罚没</th><th>待复核意图</th><th>合计</th><th>平衡</th><th>册图一致</th><th>缺口</th>
+        <th>拨付</th><th>罚没</th><th>合计</th><th>平衡</th><th>缺口</th>
       </tr>
     </thead>
     <tbody>
@@ -34,13 +34,9 @@ export const reconcileViewTemplate = `
         <td>{{ fmt(i.available) }}</td>
         <td>{{ fmt(i.released) }}</td>
         <td>{{ fmt(i.forfeited) }}</td>
-        <td>{{ fmt(i.pending_intents) }}</td>
         <td>{{ fmt(i.accounted) }}</td>
         <td>
           <span class="badge" :class="i.balanced?'pass':'fail'">{{ i.balanced ? '是' : '否' }}</span>
-        </td>
-        <td>
-          <span class="badge" :class="i.ledger_matches_intents?'pass':'fail'">{{ i.ledger_matches_intents ? '是' : '否' }}</span>
         </td>
         <td>{{ fmt(i.gap) }}</td>
       </tr>

@@ -62,7 +62,6 @@ export const cagesViewTemplate = `
         <tr><td>核验条数</td><td>{{ cageDetail.attestations.length }}</td></tr>
         <tr><td>拨付条数</td><td>{{ cageDetail.releases.length }}</td></tr>
         <tr><td>罚没条数</td><td>{{ cageDetail.forfeits.length }}</td></tr>
-        <tr><td>待复核罚没意图</td><td>{{ cageDetail.forfeit_intents.filter(i=>i.status==='待复核').length }}（未扣笼）</td></tr>
       </tbody>
     </table>
   </div>
