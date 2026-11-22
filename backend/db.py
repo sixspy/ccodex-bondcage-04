@@ -29,6 +29,15 @@ PRODUCT_META = {
     "stubs": ["topup_cage", "split_cage"],
 }
 
+# 罚没复核命运（docs/罚没复核命运说明.md，2026-11-22 当日锁死）：
+# 乙路径——复核前笼面零扣。禁止第三路，偏离记「罚没偏航」并拒写。
+FATE_SPEC = {
+    "path": "乙路径",
+    "name": "复核前笼面零扣",
+    "locked": "2026-11-22",
+    "doc": "docs/罚没复核命运说明.md",
+}
+
 
 def connect() -> sqlite3.Connection:
     DATA.mkdir(parents=True, exist_ok=True)
@@ -111,6 +120,24 @@ CREATE TABLE IF NOT EXISTS forfeits(
   created_at TEXT NOT NULL,
   FOREIGN KEY(cage_id) REFERENCES cages(id)
 );
+CREATE TABLE IF NOT EXISTS forfeit_intents(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cage_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  reason TEXT NOT NULL,
+  cage_generation INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  intent_ref TEXT NOT NULL,
+  officer TEXT NOT NULL,
+  reviewer TEXT,
+  review_note TEXT,
+  reviewed_at TEXT,
+  forfeit_id INTEGER,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(cage_id) REFERENCES cages(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_forfeit_intent_pending
+  ON forfeit_intents(cage_id) WHERE status='待复核';
 CREATE TABLE IF NOT EXISTS cage_locks(
   lock_key TEXT PRIMARY KEY,
   holder TEXT NOT NULL,
@@ -269,6 +296,33 @@ def seed_attest_samples(conn: sqlite3.Connection) -> None:
         # 不预置通过/违约结论，只保证表可查；实际核验由业务动作写入
 
 
+def seed_default_attestations(conn: sqlite3.Connection) -> None:
+    """种子违约态笼须带与笼代对齐的违约核验结论（事故夹具地基）。"""
+    rows = conn.execute(
+        "SELECT id, cage_code, generation FROM cages WHERE status='核验违约' ORDER BY id"
+    ).fetchall()
+    for cage in rows:
+        n = conn.execute(
+            """SELECT COUNT(*) c FROM attestations
+               WHERE cage_id=? AND attest_gen=? AND outcome='违约'""",
+            (cage["id"], int(cage["generation"])),
+        ).fetchone()["c"]
+        if n:
+            continue
+        conn.execute(
+            """INSERT INTO attestations(cage_id,outcome,evidence,attest_gen,officer,created_at)
+               VALUES (?,?,?,?,?,?)""",
+            (
+                cage["id"],
+                "违约",
+                "种子违约态：履约核验结论违约（罚没复核事故夹具地基）",
+                int(cage["generation"]),
+                "seed",
+                now_iso(),
+            ),
+        )
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
@@ -276,6 +330,7 @@ def init_db() -> None:
         seed_bonds(conn)
         seed_cages(conn)
         seed_attest_samples(conn)
+        seed_default_attestations(conn)
         conn.commit()
 
 

@@ -1,7 +1,7 @@
 export const attestViewTemplate = `
 <section class="panel">
   <h2>履约核验</h2>
-  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼，违约后可罚没。</p>
+  <p class="hint">对已冻结笼给出通过或违约结论；同一笼代不得改口。通过后可解笼；违约后罚没走乙路径——提交只落待复核意图（笼面零扣），复核通过才入册扣款。</p>
   <div class="grid-2">
     <div>
       <div class="form-row">

@@ -8,6 +8,15 @@
 
 保证金先入笼冻结，履约核验通过才解笼拨付，违约进罚没册，笼代与拨付罚没对账。
 
+## 罚没复核命运（2026-11-22 锁死）
+
+乙路径——复核前笼面零扣：罚没提交只落待复核意图（笼面/账户零改），
+复核岗（分人）通过才原子入正式册并扣笼减冻，驳回则意图作废、册与笼面零改；
+直进罚没册的写企图记「罚没偏航」并 409 拒写。详见
+`docs/罚没复核命运说明.md`；事故夹具
+`scripts/forfeit_false_green_fixture.py`（本机文件库复现旧直罚假绿 /
+验证偏航拒写）。
+
 ## 基本信息
 
 | 项 | 值 |
@@ -22,7 +31,7 @@
 
 | 项 | 内容 |
 |----|------|
-| 业务 LOC | **≥2900**（py+前端，不含 vue.global / Docker / README；自检约 2984） |
+| 业务 LOC | **≥2900**（py+前端，不含 vue.global / Docker / README；自检约 4126） |
 | 后端模块 | db / auth / locks / bonds_svc / cages_svc / attest_svc / release_svc / forfeit_svc / reconcile_svc / audit_svc / topup_svc / split_svc |
 | 前端视图 | 保证金户 / 入笼冻结 / 履约核验 / 解笼拨付 / 罚没册 / 对账互证 / 审计争用 / 增补拆笼空桩（8 页） |
 | 空桩 | topup（增补入笼）、split（拆笼分拨）——前后端均有 |

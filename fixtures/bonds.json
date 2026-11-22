@@ -30,5 +30,13 @@
     "frozen": 45000,
     "status": "正常",
     "created_at": "2026-11-02T10:00:00"
+  },
+  {
+    "party_key": "P-RISK",
+    "party_name": "风险演练户（罚没复核夹具）",
+    "balance": 200000,
+    "frozen": 60000,
+    "status": "正常",
+    "created_at": "2026-11-02T11:00:00"
   }
 ]

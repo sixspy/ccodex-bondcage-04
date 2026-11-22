@@ -1,10 +1,14 @@
-"""履约核验：通过后允许解笼；违约后允许罚没。"""
+"""履约核验：通过后允许解笼；违约后罚没走乙路径（复核前笼面零扣）。
+
+违约核验只改变笼状态为「核验违约」，不动一分钱；其后的罚没提交
+只落待复核意图，复核通过才原子入册扣款（见 docs/罚没复核命运说明.md）。
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
 from auth import AuthHeader, require_user, require_writer
-from db import connect, now_iso, write_audit
+from db import FATE_SPEC, connect, now_iso, write_audit
 from locks import release, require_lock
 from models import AttestIn
 
@@ -33,8 +37,8 @@ def create_attestation(body: AttestIn, authorization: AuthHeader = None):
         raise HTTPException(400, "outcome 须为通过或违约")
     lock_key = f"cage:{body.cage_id}"
     with connect() as conn:
-        require_lock(conn, lock_key, user)
         try:
+            require_lock(conn, lock_key, user)
             cage = conn.execute(
                 "SELECT * FROM cages WHERE id=?", (body.cage_id,)
             ).fetchone()
@@ -81,6 +85,12 @@ def create_attestation(body: AttestIn, authorization: AuthHeader = None):
                     "outcome": body.outcome,
                     "attest_gen": gen,
                     "evidence": body.evidence or "",
+                    "fate": f"{FATE_SPEC['path']}·{FATE_SPEC['name']}",
+                    "next": (
+                        "罚没只落待复核意图，复核通过才扣笼"
+                        if body.outcome == "违约"
+                        else "可解笼拨付"
+                    ),
                 },
             )
             conn.commit()

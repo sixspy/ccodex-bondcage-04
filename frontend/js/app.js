@@ -36,6 +36,8 @@ createApp({
     const attestations = ref([]);
     const releases = ref([]);
     const forfeits = ref([]);
+    const forfeitIntents = ref([]);
+    const noteDrafts = ref({});
     const recon = ref({});
     const partyProof = ref(null);
     const proofParty = ref("P-EAST");
@@ -141,6 +143,12 @@ createApp({
         (c) => c.status === "核验违约" || c.status === "部分罚没"
       )
     );
+    const pendingIntents = computed(() =>
+      forfeitIntents.value.filter((i) => i.status === "待复核")
+    );
+    const settledIntents = computed(() =>
+      forfeitIntents.value.filter((i) => i.status !== "待复核")
+    );
 
     async function login() {
       err.value = "";
@@ -189,6 +197,7 @@ createApp({
           a,
           r,
           f,
+          fi,
           d,
           au,
           ct,
@@ -201,6 +210,7 @@ createApp({
           api.attestations(),
           api.releases(),
           api.forfeits(),
+          api.forfeitIntents(),
           api.dashboard(),
           api.audit(),
           api.contention(),
@@ -213,6 +223,7 @@ createApp({
         attestations.value = a.items || [];
         releases.value = r.items || [];
         forfeits.value = f.items || [];
+        forfeitIntents.value = fi.items || [];
         dash.value = d || {};
         audits.value = au.items || [];
         contention.value = ct.items || [];
@@ -335,7 +346,26 @@ createApp({
         };
         if (forfeitForm.value.amount) payload.amount = forfeitForm.value.amount;
         const row = await api.forfeit(payload);
-        flashOk(`罚没成功 ${row.forfeit_ref}`);
+        flashOk(`罚没意图已落单 ${row.intent_ref}（待复核，笼面未动）`);
+        await refresh();
+      } catch (e) {
+        flashErr(e);
+      }
+    }
+
+    async function doReview(intent, decision) {
+      clearFlash();
+      try {
+        const note = (noteDrafts.value[intent.id] || "").trim();
+        const row = await api.reviewForfeit(intent.id, {
+          decision,
+          note,
+        });
+        flashOk(
+          decision === "通过"
+            ? `复核通过，已原子入册扣款 ${row.intent_ref}`
+            : `复核驳回，意图已作废 ${row.intent_ref}（册与笼面零改）`
+        );
         await refresh();
       } catch (e) {
         flashErr(e);
@@ -405,6 +435,10 @@ createApp({
       attestations,
       releases,
       forfeits,
+      forfeitIntents,
+      noteDrafts,
+      pendingIntents,
+      settledIntents,
       recon,
       partyProof,
       proofParty,
@@ -442,6 +476,7 @@ createApp({
       doAttest,
       doRelease,
       doForfeit,
+      doReview,
       loadReconcile,
       loadProof,
       doTopupStub,
